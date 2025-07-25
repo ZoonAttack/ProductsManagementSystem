@@ -1,0 +1,12 @@
+﻿/* login.css */
+body {
+    background-color: #4e73df;
+}
+
+.card {
+    border-radius: 1rem;
+}
+
+.btn-user {
+    font-weight: bold;
+}

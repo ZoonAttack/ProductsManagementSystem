@@ -96,7 +96,7 @@ namespace ProductsManagement.Controllers
             } return BadRequest(new { errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage) });
         }
 
-
+        
         [HttpPost("logout")]
         [Authorize]
         public IActionResult Logout()
@@ -105,5 +105,49 @@ namespace ProductsManagement.Controllers
             _signInManager.SignOutAsync().Wait();
             return Ok(new { message = "User logged out successfully" });
         }
+
+
+        [HttpPost("admin/login")]
+        public async Task<IActionResult> AdminLogin(LoginUserDto loginDto)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = await _userManager.FindByEmailAsync(loginDto.Email);
+                if (user != null && await _userManager.CheckPasswordAsync(user, loginDto.Password))
+                {
+                    var roles = await _userManager.GetRolesAsync(user);
+                    if (!roles.Contains("Admin"))
+                        return Unauthorized(new { errors = new[] { "Access denied. User is not an Admin." } });
+
+                    var role = "Admin";
+
+                    var tokenHandler = new JwtSecurityTokenHandler();
+                    var tokenDescriptor = new SecurityTokenDescriptor
+                    {
+                        Subject = new ClaimsIdentity(new[]
+                        {
+                    new Claim(ClaimTypes.NameIdentifier, user.Id),
+                    new Claim(ClaimTypes.Email, user.Email),
+                    new Claim(ClaimTypes.Role, role)
+                }),
+                        Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes),
+                        Issuer = _jwtSettings.Issuer,
+                        Audience = _jwtSettings.Audience,
+                        SigningCredentials = new SigningCredentials(
+                            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Key)),
+                            SecurityAlgorithms.HmacSha256)
+                    };
+
+                    var token = tokenHandler.CreateToken(tokenDescriptor);
+                    return Ok(new { token = tokenHandler.WriteToken(token), role });
+                }
+                return Unauthorized(new { errors = new[] { "Invalid credentials" } });
+            }
+            return BadRequest(new
+            {
+                errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+            });
+        }
+
     }
 }

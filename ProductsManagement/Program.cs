@@ -15,32 +15,29 @@ namespace ProductsManagement
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            builder.Services.AddIdentity<User, IdentityRole>()
-                            .AddEntityFrameworkStores<ApplicationDbContext>();
-            builder.Services.Configure<IdentityOptions>(options =>
-            {
-                options.SignIn.RequireConfirmedEmail = false;
-                options.Password.RequireDigit = false;
-                options.Password.RequiredLength = 6;
-                options.Password.RequireNonAlphanumeric = false;
-                options.Password.RequireUppercase = false;
-                options.Password.RequireLowercase = false;
-            });
+            // Add services to the container.
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
             {
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
             });
 
-            builder.Services.AddControllers();
-            builder.Services.AddControllersWithViews();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddIdentity<User, IdentityRole>()
+                .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddDefaultTokenProviders();
+
+            builder.Services.Configure<IdentityOptions>(options =>
+            {
+                options.Password.RequireDigit = false;
+                options.Password.RequiredLength = 6;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequireUppercase = false;
+                options.Password.RequireLowercase = false;
+                options.SignIn.RequireConfirmedEmail = false;
+            });
 
             builder.Services.Configure<JWTSettings>(builder.Configuration.GetSection("JwtSettings"));
-
-            var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-            var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]);
+            var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JWTSettings>();
+            var key = Encoding.UTF8.GetBytes(jwtSettings.Key);
 
             builder.Services.AddAuthentication(options =>
             {
@@ -57,15 +54,22 @@ namespace ProductsManagement
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = jwtSettings["Issuer"],
-                    ValidAudience = jwtSettings["Audience"],
+                    ValidIssuer = jwtSettings.Issuer,
+                    ValidAudience = jwtSettings.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(key)
                 };
             });
+
             builder.Services.AddAuthorization(options =>
             {
                 options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
             });
+
+            builder.Services.AddControllers();
+            builder.Services.AddControllersWithViews();
+
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen();
 
             var app = builder.Build();
 
@@ -77,46 +81,58 @@ namespace ProductsManagement
             }
 
             app.UseHttpsRedirection();
-
+            app.UseStaticFiles();
 
             app.UseAuthentication();
-
             app.UseAuthorization();
 
-
             app.MapControllers();
+            app.MapDefaultControllerRoute();
 
+            // Seed roles and default admin user
             using (var scope = app.Services.CreateScope())
             {
                 var services = scope.ServiceProvider;
-                await SeedRolesAsync(services);
+                await SeedRolesAndAdminAsync(services);
             }
+            app.MapControllerRoute(
+        name: "default",
+        pattern: "{controller=Account}/{action=AdminLogin}/{id?}");
             app.Run();
         }
-        static async Task SeedRolesAsync(IServiceProvider services)
+
+        private static async Task SeedRolesAndAdminAsync(IServiceProvider services)
         {
             var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
             var userManager = services.GetRequiredService<UserManager<User>>();
-            string[] roles = ["user", "admin"];
+
+            string[] roles = { "admin", "user" };
 
             foreach (var role in roles)
             {
                 if (!await roleManager.RoleExistsAsync(role))
+                {
                     await roleManager.CreateAsync(new IdentityRole(role));
+                }
             }
 
-            //Initialize admin
+            // Create default admin
             string adminEmail = "admin@gmail.com";
             string adminPassword = "admin123";
+
             if (await userManager.FindByEmailAsync(adminEmail) == null)
             {
-                User user = new User()
+                var adminUser = new User
                 {
                     UserName = adminEmail,
                     Email = adminEmail
                 };
-                await userManager.CreateAsync(user, adminPassword);
-                userManager.AddToRoleAsync(user, "admin").Wait();
+
+                var result = await userManager.CreateAsync(adminUser, adminPassword);
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(adminUser, "admin");
+                }
             }
         }
     }

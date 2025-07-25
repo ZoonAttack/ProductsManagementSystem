@@ -1,0 +1,65 @@
+﻿@{
+    Layout = "~/Views/Shared/_UserLayout.cshtml"; // تصميم خاص بالمستخدم (أخف من الأدمن)
+    ViewData["Title"] = "User Dashboard";
+}
+
+<h1 class="h3 mb-4 text-gray-800">Welcome to the User Dashboard</h1>
+
+<div class="row">
+
+    <!-- قائمة المنتجات -->
+    <div class="col-lg-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Available Products</h6>
+            </div>
+            <div class="card-body">
+                <div id="productList" class="row"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            try {
+                const res = await fetch('/api/products', {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem("token")}`
+                    }
+                });
+                const products = await res.json();
+
+                const productList = document.getElementById("productList");
+                productList.innerHTML = "";
+
+                products.forEach(p => {
+                    productList.innerHTML += `
+                        <div class="col-md-4 mb-4">
+                            <div class="card border-left-info shadow h-100 py-2">
+                                <div class="card-body">
+                                    <h5 class="text-info font-weight-bold">${p.name}</h5>
+                                    <p>${p.description}</p>
+                                    <p class="text-success">$${p.price.toFixed(2)}</p>
+                                    <button class="btn btn-primary btn-sm" onclick="orderProduct(${p.id})">Order</button>
+                                    <button class="btn btn-danger btn-sm" onclick="cancelOrder(${p.id})">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                console.error("Error loading products:", err);
+            }
+        });
+
+        function orderProduct(id) {
+            alert("Ordered product ID: " + id);
+        }
+
+        function cancelOrder(id) {
+            alert("Canceled order for product ID: " + id);
+        }
+    </script>
+}

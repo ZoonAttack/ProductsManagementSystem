@@ -1,0 +1,27 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"] - Admin</title>
+    <link href="~/css/sb-admin-2.min.css" rel="stylesheet" />
+    <script src="~/js/jquery.min.js"></script>
+    <script src="~/js/sb-admin-2.min.js"></script>
+</head>
+<body id="page-top">
+    <div id="wrapper">
+        <!-- Sidebar هنا -->
+        @Html.Partial("_AdminSidebar")
+        <div id="content-wrapper" class="d-flex flex-column">
+            <div id="content">
+                <!-- Header هنا -->
+                @Html.Partial("_AdminHeader")
+                <div class="container-fluid">
+                    @RenderBody()
+                </div>
+            </div>
+            <!-- Footer هنا -->
+            @Html.Partial("_AdminFooter")
+        </div>
+    </div>
+</body>
+</html>
